@@ -16,6 +16,8 @@ module cross_sections
 
   ! Only used here and in h1jet.f90 
   real(dp), pointer, public :: lumi_gg(:), lumi_qg(:), lumi_gq(:), lumi_qqbar(:)
+  ! Hack
+  real(dp), pointer, public :: dlumi_gg(:), dlumi_qg(:), dlumi_gq(:), dlumi_qqbar(:)
 
   public :: h1jet_prefactor, cross_section, dsigma_dptdy  
 
@@ -97,12 +99,14 @@ contains
     pz = pt * sinh(y)
     p(3,:) = (/zero, pt, pz, E/)
     Eb = sqrt(M**2 + E**2)
+
     p(4,:) = (/zero, -pt, -pz, Eb/)
 
     Ebeam = E + Eb
 
     p(1,:) = Ebeam / two * (/zero, zero, one, one/)
     p(2,:) = Ebeam / two * (/zero, zero, -one, one/)
+    ! write(*,*) 'Energies', half * Ebeam, half * Ebeam, E
   
   end subroutine gen_momenta
 
@@ -119,8 +123,11 @@ contains
     type(gdval) :: tauhat
     real(dp) :: s, t, u
     real(dp) :: lumigg, lumiqg, lumigq, lumiqqbar
+    real(dp)  :: dlumigg, dlumiqg, dlumigq, dlumiqqbar
     real(dp) :: wtqq, wtqg, wtgq, wtgg
+    real(dp) :: wtqq_coeff, wtqg_coeff, wtgq_coeff, wtgg_coeff
     real(dp) :: jakob
+    real(dp) :: h12, h11
 
     call gen_momenta(y, p)
 
@@ -134,9 +141,20 @@ contains
     lumigq    = lumi_gq .atx. tauhat
     lumiqqbar = lumi_qqbar .atx. tauhat
 
+    ! Hack
+    dlumigg    = dlumi_gg .atx. tauhat
+    dlumiqg    = dlumi_qg .atx. tauhat
+    dlumigq    = dlumi_gq .atx. tauhat
+    dlumiqqbar = dlumi_qqbar .atx. tauhat
+
     s =  two * dot(p(1,:), p(2,:))
     t = -two * dot(p(1,:), p(3,:))
     u = -two * dot(p(2,:), p(3,:))
+
+    !Hack from CAESAR
+    ! s = 1385041.5765690478 
+    ! t = -710546.52241731714
+    ! u = -666179.87575797061
 
     select case(iproc)
       case (id_H)
@@ -147,6 +165,12 @@ contains
         end if
       case (id_Z)
         call vboson_Msquared(s, t, u, wtgg, wtqg, wtgq, wtqq)
+        !Hack
+        wtgg_coeff = wtgg; wtqg_coeff = wtqg
+        wtgq_coeff = wtgq; wtqq_coeff = wtqq
+       call vboson_resum_coeffs(s, t, u, wtgg_coeff, wtqg_coeff, wtgq_coeff, &
+              & wtqq_coeff)
+      !  write(*,*) "weight", wtgg_coeff, wtqg_coeff, wtgq_coeff, wtqq_coeff
       case (id_bbH)
         call bbH_Msquared(s, t, u, wtqq, wtqg, wtgq, wtgg)
       case (id_user)
@@ -155,9 +179,40 @@ contains
         call wae_error('dsigma_dptdy', 'Unrecognised process')
     end select
 
-    res = (wtgg * lumigg + lumiqg * wtqg + lumigq * wtgq + wtqq * lumiqqbar) * jakob 
+   ! -----------------------------------------------------------    
+  ! h12 and h24 res calculation
+  res = (wtgg_coeff * lumigg + lumiqg * wtqg_coeff + lumigq * wtgq_coeff + wtqq_coeff * lumiqqbar) * jakob 
+
+! -----------------------------------------------------------   
+  ! h11 res calculation
+    res = wtgg_coeff * lumigg + lumiqg * wtqg_coeff + lumigq * wtgq_coeff +&
+           & wtqq_coeff * lumiqqbar
+    res = res-wtgg * dlumigg - dlumiqg * wtqg - dlumigq * wtgq - wtqq * dlumiqqbar
+    res = res * jakob
+
+  ! Code to test the individual channels
+    !  res = wtqq_coeff * lumiqqbar * jakob
+    !  res = wtqg_coeff * lumiqg * jakob
+!     res = wtgq_coeff * lumigq * jakob
+
+  ! Code to test the luminosity of the individual channels
+    ! res = - wtqq * dlumiqqbar * jakob
+    ! res = - dlumiqg * wtqg * jakob
+    ! res = - dlumigq * wtgq * jakob
+   
+    
+! -----------------------------------------------------------    
+  ! h23 res calculation
+    ! res = wtgg_coeff * lumigg + lumiqg * wtqg_coeff + lumigq * wtgq_coeff +&
+    !       & wtqq_coeff * lumiqqbar
+    ! res = res-wtgg * dlumigg - dlumiqg * wtqg - dlumigq * wtgq - wtqq * dlumiqqbar
+    ! res = -(two * cf + ca) * res
+    ! res = res - twopi_beta0 * (two * cf + ca) * (wtgg * lumigg + lumiqg * wtqg + lumigq * wtgq +&
+    !       & wtqq * lumiqqbar)
+    ! res = res * jakob
 
   end function dsigma_dptdy
+
 
 !=======================================================================================
 

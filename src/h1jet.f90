@@ -77,6 +77,10 @@ program h1jet
   allocate(lumi_gg(0:grid%ny), lumi_qg(0:grid%ny), lumi_gq(0:grid%ny),&
        & lumi_qqbar(0:grid%ny))
 
+  ! Hack - define the dlumi's       
+       allocate(dlumi_gg(0:grid%ny), dlumi_qg(0:grid%ny), dlumi_gq(0:grid%ny),&
+       & dlumi_qqbar(0:grid%ny))
+
   ! If proc == user then check if it is set up 
   if (iproc == id_user) then 
     select case(user_included())
@@ -91,7 +95,7 @@ program h1jet
 
   ! Evaluate the running alpha_s for the born-level cross-section 
   alphas = RunningCoupling(muR)
-
+  
   ! Set tau needed for the luminosities 
   tau = (M**2 / roots**2) .with. grid 
 
@@ -110,8 +114,8 @@ program h1jet
 
     ! Get alpha_s(mb(mb))
     as0 = RunningCoupling(mb0)
-
-    ! Calculate running bottom mass 
+    
+! Calculate running bottom mass 
     running_mb = RunningMass(muR, mb0, alphas, as0)
 
     write(idev,*) ! Blank line for nicer output 
@@ -163,6 +167,8 @@ program h1jet
     muR = muR * xmur
     
     call luminosities(muF, collider, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
+    ! Hack
+    call luminosities_expanded(muF, collider, dlumi_gg, dlumi_qg, dlumi_gq, dlumi_qqbar)
 
     ! Update running alpha_s 
     alphas = RunningCoupling(muR)
@@ -174,7 +180,9 @@ program h1jet
     dsigmadpt = gauss_integrate(dsigma_dptdy, ymin, ymax, accuracy)
 
     ! Include couplings and prefactors
-    dsigmadpt = dsigmadpt * ew_prefactor * alphas**(as_pow + 1) 
+    dsigmadpt = dsigmadpt * ew_prefactor * alphas**(as_pow + 1)
+    ! Hack
+    dsigmadpt = dsigmadpt * alphas/twopi
     if (iproc == id_bbH) then
       running_mb = RunningMass(muR, mb0, alphas, as0)
       dsigmadpt = dsigmadpt * running_mb**2
@@ -186,12 +194,17 @@ program h1jet
 
   ! Compute the integrated distribution as a function of ptmin 
   ! and print the result on the screen
+  !Hack but needs to be git pushed as necessary for the programme. 
   do i = 1, nbins
-    sigma(i) = sum(dsigma_dpt(i:nbins)) * bin_width
-    write(idev,*) binmin(i), binmed(i), binmax(i), dsigma_dpt(i), sigma(i)
-  end do
-
-  write(*,*) ! Blank line for nicer output  
+    if (log_val_opt('--log')) then
+       sigma(i) = sum(exp(binmed(i:nbins))*dsigma_dpt(i:nbins)) * bin_width
+       write(idev,*) exp(binmin(i)), exp(binmed(i)), exp(binmax(i)), dsigma_dpt(i), sigma(i)
+    else
+       sigma(i) = sum(dsigma_dpt(i:nbins)) * bin_width
+       write(idev,*) binmin(i), binmed(i), binmax(i), dsigma_dpt(i), sigma(i)
+    end if
+ end do
+ write(*,*) ! Blank line for nicer output    
 
   ! Close output file (if output file has been specified) 
   if (idev /= stdout) then 
@@ -199,5 +212,4 @@ program h1jet
   end if 
 
 end program h1jet
-
 

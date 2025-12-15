@@ -23,7 +23,7 @@ module pdfs_tools
   public :: init_pdfs_hoppet_evolution
   public :: get_pdfs, lumi_at_x, lumi_all_x
 
-  public :: luminosities
+  public :: luminosities, luminosities_expanded
 
 contains
 
@@ -164,6 +164,24 @@ contains
   end function lumi_at_x
 
 !=======================================================================================
+!Hack - calculate the function of the expanded luminosity
+
+  function lumi_at_x_expanded(pdf1, pdf2) result(res)
+    real(dp), intent(in) :: pdf1(0:grid%ny,-6:7), pdf2(0:grid%ny,-6:7)
+    real(dp) :: P_x_pdf1(0:grid%ny,-6:7), P_x_pdf2(0:grid%ny,-6:7)
+    real(dp) :: lumi_gg(0:grid%ny), lumi_qg(0:grid%ny), lumi_qqbar(0:grid%ny)
+    real(dp) :: res
+    type(gdval) :: x
+
+    P_x_pdf1 = dglap_h%P_LO * pdf1
+    P_x_pdf2 = dglap_h%P_LO * pdf2
+
+    res = res + lumi_all_x(P_x_pdf1, pdf2).atx.x
+    res = res + lumi_all_x(pdf1, P_x_pdf2).atx.x
+
+  end function lumi_at_x_expanded
+
+!=======================================================================================
 ! Return the two incoming PDFs evaluated at scale muF, taking into
 ! account whether the collider is pp or ppbar
 
@@ -221,6 +239,95 @@ contains
     pdf(:, -iflv_d) = dbar
 
   end function unpolarized_dummy_pdf
+
+!=======================================================================================
+! Returns NLO luminosities for Higgs production (or call user defined function) 
+! Evaluated at shat/s
+! Expanded version - hack 
+
+  subroutine luminosities_expanded(muF, collider, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
+    use ew_parameters, only : gv2_ga2
+    !use hboson
+    use user_interface, only : user_luminosities
+    use common_vars
+
+    real(dp), intent(in) :: muF
+    character(len=*), intent(in) :: collider
+    !integer, intent(in) :: iproc
+
+    real(dp), intent(out) :: lumi_gg(0:grid%ny), lumi_qg(0:grid%ny), lumi_gq(0:grid%ny), lumi_qqbar(0:grid%ny)
+
+    real(dp) :: pdf1(0:grid%ny,-6:7), pdf2(0:grid%ny,-6:7)
+    integer  :: i
+
+    !Hack
+    real(dp) :: P_x_pdf1(0:grid%ny,-6:7), P_x_pdf2(0:grid%ny,-6:7)
+    real(dp) :: res
+    type(gdval) :: x
+
+
+    call get_pdfs(muF, collider, pdf1, pdf2)
+
+    !Hack
+    P_x_pdf1 = dglap_h%P_LO * pdf1
+    P_x_pdf2 = dglap_h%P_LO * pdf2
+
+    select case(iproc)
+      case(id_H)
+        lumi_gg = PartonLuminosity(grid, P_x_pdf1(:,iflv_g), pdf2(:,iflv_g)) + &
+                & PartonLuminosity(grid, pdf1(:,iflv_g), P_x_pdf2(:,iflv_g))
+        lumi_gq = PartonLuminosity(grid, P_x_pdf1(:,iflv_g), &
+              & sum(pdf2(:,-6:-1), dim = 2) + sum(pdf2(:, 1:6 ), dim = 2) ) + &
+              & PartonLuminosity(grid, pdf1(:,iflv_g), &
+              & sum(P_x_pdf2(:,-6:-1), dim = 2) + sum(P_x_pdf2(:, 1:6 ), dim = 2) )
+        lumi_qg = PartonLuminosity(grid, &
+              & sum(P_x_pdf1(:,-6:-1),dim = 2) + sum(P_x_pdf1(:, 1:6 ), dim = 2),pdf2(:,iflv_g)) + &
+              & PartonLuminosity(grid, &
+              & sum(pdf1(:,-6:-1),dim = 2) + sum(pdf1(:, 1:6 ), dim = 2),P_x_pdf2(:,iflv_g))
+        lumi_qqbar = 0
+        do i = -6, 6
+          if (i == 0) cycle
+          lumi_qqbar = lumi_qqbar + PartonLuminosity(grid, P_x_pdf1(:,i), pdf2(: ,-i)) + &
+               &  PartonLuminosity(grid, pdf1(:,i), P_x_pdf2(: ,-i))
+        end do
+      case(id_Z)
+        lumi_qqbar = 0
+        do i = 1, 6
+         lumi_qqbar = lumi_qqbar + gv2_ga2(i) * (PartonLuminosity(grid, P_x_pdf1(:, i), pdf2(:,-i)) + &
+                 & PartonLuminosity(grid, pdf1(:, i), P_x_pdf2(:,-i)))
+          lumi_qqbar = lumi_qqbar + gv2_ga2(i) * (PartonLuminosity(grid, P_x_pdf1(:,-i), pdf2(:, i)) + &
+                 & PartonLuminosity(grid, pdf1(:,-i),P_x_pdf2(:, i)))
+        end do
+        lumi_gq = 0; lumi_qg = 0;
+        do i = 1, 6
+         lumi_gq = lumi_gq + gv2_ga2(i) * (PartonLuminosity(grid, P_x_pdf1(:,iflv_g), &
+               & pdf2(:,-i)+pdf2(:,i)) + PartonLuminosity(grid, &
+               & pdf1(:,iflv_g), P_x_pdf2(:,-i) + P_x_pdf2(:,i)))
+         lumi_qg = lumi_qg + gv2_ga2(i) * (PartonLuminosity(grid, &
+               & P_x_pdf1(:,-i) + P_x_pdf1(:, i), pdf2(:,iflv_g)) + &
+               & PartonLuminosity(grid, &
+               & pdf1(:,-i) + pdf1(:, i),P_x_pdf2(:,iflv_g)))
+        end do
+        lumi_gg = 0
+      case(id_bbH)
+        lumi_qqbar = PartonLuminosity(grid, P_x_pdf1(:,5), pdf2(:,-5)) + &
+              & PartonLuminosity(grid, P_x_pdf1(:,-5), pdf2(:,5)) + &
+              & PartonLuminosity(grid, pdf1(:,5), P_x_pdf2(:,-5)) + &
+              & PartonLuminosity(grid, pdf1(:,-5),P_x_pdf2(:,5))
+        lumi_gq = PartonLuminosity(grid, P_x_pdf1(:,iflv_g), &
+              & pdf2(:,-5) + pdf2(:,5)) +  PartonLuminosity(grid, &
+              & pdf1(:,iflv_g), P_x_pdf2(:,-5) +P_x_pdf2(:,5))
+        lumi_qg = PartonLuminosity(grid, &
+              & P_x_pdf1(:,-5) + P_x_pdf1(:, 5), pdf2(:,iflv_g)) + &
+              & PartonLuminosity(grid, pdf1(:,-5) + pdf1(:, 5), &
+              & P_x_pdf2(:,iflv_g))
+        lumi_gg = 0
+      case (id_user)
+        ! Call user interface 
+        call user_luminosities(grid, pdf1, pdf2, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
+    end select
+
+  end subroutine luminosities_expanded
 
 !=======================================================================================
 ! Returns NLO luminosities for Higgs production (or call user defined function) 
