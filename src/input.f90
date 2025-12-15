@@ -137,6 +137,16 @@ contains
       call wae_error('input_handler', 'Unrecognised --resum option (use none/h12/h11/h24)')
     end select
 
+    select case (trim(string_val_opt('--obs', 'onejet')))
+    case ('onejet')
+      obs_flag = obs_onejet
+    case ('Tminor')
+      obs_flag = obs_Tminor
+    case default
+      call wae_error('input_handler', &
+        'Unrecognised --obs option (use onejet/Tminor)')
+    end select
+
   end subroutine input_handler
   
 !======================================================================================= 

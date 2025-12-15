@@ -128,6 +128,9 @@ contains
     real(dp) :: wtqq_coeff, wtqg_coeff, wtgq_coeff, wtgg_coeff
     real(dp) :: jakob
     real(dp) :: h12, h11
+    real(dp) :: h11_fac
+    real(dp) :: h12qg_coeff, h12gq_coeff, h12qq_coeff
+    real(dp) :: g23qg, g23gq, g23qq
 
     call gen_momenta(y, p)
 
@@ -165,13 +168,11 @@ contains
         end if
       case (id_Z)
         call vboson_Msquared(s, t, u, wtgg, wtqg, wtgq, wtqq)
-        !Hack
-        ! wtgg_coeff = wtgg; wtqg_coeff = wtqg
-        ! wtgq_coeff = wtgq; wtqq_coeff = wtqq
-       call vboson_resum_coeffs(s, t, u, wtgg_coeff, wtqg_coeff, wtgq_coeff, &
-              & wtqq_coeff)
-              ! wtgg = wtgg * wtgg_coeff; wtqg = wtqg * wtqg_coeff
-              ! wtgq = wtgq * wtgq_coeff; wtqq = wtqq * wtqq_coeff
+        ! Hack
+        call vboson_resum_coeffs( s, t, u, &
+          wtgg_coeff, wtqg_coeff, wtgq_coeff, wtqq_coeff, &
+          h11_fac, h12qg_coeff, h12gq_coeff, h12qq_coeff, &
+          g23qg, g23gq, g23qq )
       case (id_bbH)
         call bbH_Msquared(s, t, u, wtqq, wtqg, wtgq, wtgg)
       case (id_user)
@@ -195,38 +196,22 @@ contains
             lumigq * wtgq + wtqq * lumiqqbar) * jakob
 
     case (resum_h11)
+      res = ( wtgg*wtgg_coeff*lumigg + wtqg*wtqg_coeff*lumiqg + &
+        wtgq*wtgq_coeff*lumigq + wtqq*wtqq_coeff*lumiqqbar )
 
-      res = wtgg * wtgg_coeff * lumigg + &
-            wtqg * wtqg_coeff * lumiqg + &
-            wtgq * wtgq_coeff * lumigq + &
-            wtqq * wtqq_coeff * lumiqqbar
-
-      res = res - wtgg * dlumigg - &
-                  wtqg * dlumiqg - &
-                  wtgq * dlumigq - &
-                  wtqq * dlumiqqbar
+      res = res - h11_fac * ( wtgg*dlumigg + wtqg*dlumiqg + wtgq*dlumigq + wtqq*dlumiqqbar )
 
       res = res * jakob
 
     case (resum_h23)
 
-      res = wtgg * wtgg_coeff * lumigg + &
-            wtqg * wtqg_coeff * lumiqg + &
-            wtgq * wtgq_coeff * lumigq + &
-            wtqq * wtqq_coeff * lumiqqbar
+    res = h12qg_coeff * ( wtqg*wtqg_coeff*lumiqg - h11_fac*wtqg*dlumiqg ) + &
+          h12gq_coeff * ( wtgq*wtgq_coeff*lumigq - h11_fac*wtgq*dlumigq ) + &
+          h12qq_coeff * ( wtqq*wtqq_coeff*lumiqqbar - h11_fac*wtqq*dlumiqqbar )
 
-      res = res - wtgg * dlumigg - &
-                  wtqg * dlumiqg - &
-                  wtgq * dlumigq - &
-                  wtqq * dlumiqqbar
+    res = res + g23qg*(wtqg*lumiqg) + g23gq*(wtgq*lumigq) + g23qq*(wtqq*lumiqqbar)
 
-      res = -(two * cf + ca) * res
-
-      res = res - twopi_beta0 * (two * cf + ca) * (wtgg * lumigg + &
-            & lumiqg * wtqg + lumigq * wtgq + &
-            & wtqq * lumiqqbar)
-
-      res = res * jakob
+    res = res * jakob
 
 
 

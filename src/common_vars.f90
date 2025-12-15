@@ -35,8 +35,12 @@ module common_vars
   integer, public, parameter :: resum_h11 = 2
   integer, public, parameter :: resum_h24 = 3
   integer, public, parameter :: resum_h23 = 4
-  ! integer, public, parameter :: resum_h23 = 4
   integer, public :: resum_flag
+
+  ! Hack: Observable flags
+  integer, public, parameter :: obs_onejet   = 1
+  integer, public, parameter :: obs_Tminor = 2
+  integer, public :: obs_flag 
 
 
 
