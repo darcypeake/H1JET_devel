@@ -166,11 +166,12 @@ contains
       case (id_Z)
         call vboson_Msquared(s, t, u, wtgg, wtqg, wtgq, wtqq)
         !Hack
-        wtgg_coeff = wtgg; wtqg_coeff = wtqg
-        wtgq_coeff = wtgq; wtqq_coeff = wtqq
+        ! wtgg_coeff = wtgg; wtqg_coeff = wtqg
+        ! wtgq_coeff = wtgq; wtqq_coeff = wtqq
        call vboson_resum_coeffs(s, t, u, wtgg_coeff, wtqg_coeff, wtgq_coeff, &
               & wtqq_coeff)
-      !  write(*,*) "weight", wtgg_coeff, wtqg_coeff, wtgq_coeff, wtqq_coeff
+              ! wtgg = wtgg * wtgg_coeff; wtqg = wtqg * wtqg_coeff
+              ! wtgq = wtgq * wtgq_coeff; wtqq = wtqq * wtqq_coeff
       case (id_bbH)
         call bbH_Msquared(s, t, u, wtqq, wtqg, wtgq, wtgg)
       case (id_user)
@@ -181,14 +182,62 @@ contains
 
    ! -----------------------------------------------------------    
   ! h12 and h24 res calculation
-  res = (wtgg_coeff * lumigg + lumiqg * wtqg_coeff + lumigq * wtgq_coeff + wtqq_coeff * lumiqqbar) * jakob 
+  ! res = (wtgg * lumigg + lumiqg * wtqg + lumigq * wtgq + wtqq * lumiqqbar) * jakob 
+
+    select case (resum_flag)
+    case (resum_none, resum_h12, resum_h24)
+      wtgg = wtgg * wtgg_coeff
+      wtqg = wtqg * wtqg_coeff
+      wtgq = wtgq * wtgq_coeff
+      wtqq = wtqq * wtqq_coeff
+
+      res = (wtgg * lumigg + lumiqg * wtqg + &
+            lumigq * wtgq + wtqq * lumiqqbar) * jakob
+
+    case (resum_h11)
+
+      res = wtgg * wtgg_coeff * lumigg + &
+            wtqg * wtqg_coeff * lumiqg + &
+            wtgq * wtgq_coeff * lumigq + &
+            wtqq * wtqq_coeff * lumiqqbar
+
+      res = res - wtgg * dlumigg - &
+                  wtqg * dlumiqg - &
+                  wtgq * dlumigq - &
+                  wtqq * dlumiqqbar
+
+      res = res * jakob
+
+    case (resum_h23)
+
+      res = wtgg * wtgg_coeff * lumigg + &
+            wtqg * wtqg_coeff * lumiqg + &
+            wtgq * wtgq_coeff * lumigq + &
+            wtqq * wtqq_coeff * lumiqqbar
+
+      res = res - wtgg * dlumigg - &
+                  wtqg * dlumiqg - &
+                  wtgq * dlumigq - &
+                  wtqq * dlumiqqbar
+
+      res = -(two * cf + ca) * res
+
+      res = res - twopi_beta0 * (two * cf + ca) * (wtgg * lumigg + &
+            & lumiqg * wtqg + lumigq * wtgq + &
+            & wtqq * lumiqqbar)
+
+      res = res * jakob
+
+
+
+    end select
 
 ! -----------------------------------------------------------   
   ! h11 res calculation
-    res = wtgg_coeff * lumigg + lumiqg * wtqg_coeff + lumigq * wtgq_coeff +&
-           & wtqq_coeff * lumiqqbar
-    res = res-wtgg * dlumigg - dlumiqg * wtqg - dlumigq * wtgq - wtqq * dlumiqqbar
-    res = res * jakob
+    ! res = wtgg_coeff * lumigg + lumiqg * wtqg_coeff + lumigq * wtgq_coeff +&
+    !        & wtqq_coeff * lumiqqbar
+    ! res = res-wtgg * dlumigg - dlumiqg * wtqg - dlumigq * wtgq - wtqq * dlumiqqbar
+    ! res = res * jakob
 
   ! Code to test the individual channels
     !  res = wtqq_coeff * lumiqqbar * jakob

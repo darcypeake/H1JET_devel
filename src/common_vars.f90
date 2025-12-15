@@ -29,6 +29,17 @@ module common_vars
   integer, public, parameter :: id_missingTotXsec = 1 
   integer, public, parameter :: id_fullImplementation = 2
 
+  ! Hack: Resummation coefficients control flag
+  integer, public, parameter :: resum_none = 0
+  integer, public, parameter :: resum_h12 = 1
+  integer, public, parameter :: resum_h11 = 2
+  integer, public, parameter :: resum_h24 = 3
+  integer, public, parameter :: resum_h23 = 4
+  ! integer, public, parameter :: resum_h23 = 4
+  integer, public :: resum_flag
+
+
+
   ! Kinematics related variables 
   real(dp), public :: M
   real(dp), public :: roots, pt 

@@ -121,6 +121,22 @@ contains
                     &when using --log')
     end if
 
+    ! Hack: Resummation coefficients control flag
+    select case (trim(string_val_opt('--resum', 'none')))
+    case ('none')
+      resum_flag = resum_none
+    case ('h12')
+      resum_flag = resum_h12
+    case ('h11')
+      resum_flag = resum_h11
+    case ('h24')
+      resum_flag = resum_h24
+    case ('h23')
+      resum_flag = resum_h23
+    case default
+      call wae_error('input_handler', 'Unrecognised --resum option (use none/h12/h11/h24)')
+    end select
+
   end subroutine input_handler
   
 !======================================================================================= 
