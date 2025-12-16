@@ -142,6 +142,8 @@ contains
       obs_flag = obs_onejet
     case ('Tminor')
       obs_flag = obs_Tminor
+    case ('Tthrust')
+      obs_flag = obs_Tthrust
     case default
       call wae_error('input_handler', &
         'Unrecognised --obs option (use onejet/Tminor)')

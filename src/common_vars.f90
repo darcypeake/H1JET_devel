@@ -40,6 +40,7 @@ module common_vars
   ! Hack: Observable flags
   integer, public, parameter :: obs_onejet   = 1
   integer, public, parameter :: obs_Tminor = 2
+  integer, public, parameter :: obs_Tthrust = 3
   integer, public :: obs_flag 
 
 

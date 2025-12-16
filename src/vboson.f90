@@ -62,7 +62,8 @@ contains
     real(dp) :: Cleg(3), Bleg(3)
     real(dp) :: Bq, Bg, Q2, aobs
     real(dp) :: Cqg(3), Cgq(3), Cqq(3)
-    real(dp), parameter :: Catalan
+    real(dp), parameter :: catalan = 0.91596559_dp
+    real(dp), parameter :: cTT = -(four * catalan + pi * log(two))/ pi
 
     Q2 = M**2
 
@@ -72,7 +73,7 @@ contains
 
     Bq = -three/four
     Bg = -(11.0_dp*ca - four*tr*nf)/(12.0_dp*ca)
-    Catalan = 0.915966_dp
+    ! Catalan = 0.915966_dp
 
     select case (obs_flag)
 
@@ -87,6 +88,15 @@ contains
       a(:) = one
       b(:) = zero
       d(:) = sqrt(Q2*s/(u*t))
+
+    case (obs_Tthrust)
+      a(:) = one
+      b(1) = zero
+      b(2) = zero
+      b(3) = one
+      d(1) = exp(cTT) * sqrt(Q2 * s / (u * t))
+      d(2) = exp(cTT) * sqrt(Q2 * s / (u * t))
+      d(3) = (sqrt(Q2) * s * E(3))/(4 * t * u)
 
 
     case default
