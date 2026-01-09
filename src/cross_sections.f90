@@ -129,8 +129,8 @@ contains
     real(dp) :: jakob
     real(dp) :: h12, h11
     real(dp) :: h11_fac
-    real(dp) :: h12qg_coeff, h12gq_coeff, h12qq_coeff
-    real(dp) :: g23qg, g23gq, g23qq
+    real(dp) :: h12qg_coeff, h12gq_coeff, h12qq_coeff, h12gg_coeff
+    real(dp) :: g23qg, g23gq, g23qq, g23gg
 
     call gen_momenta(y, p)
 
@@ -154,10 +154,7 @@ contains
     t = -two * dot(p(1,:), p(3,:))
     u = -two * dot(p(2,:), p(3,:))
 
-    !Hack from CAESAR
-    ! s = 1385041.5765690478 
-    ! t = -710546.52241731714
-    ! u = -666179.87575797061
+
 
     select case(iproc)
       case (id_H)
@@ -171,8 +168,8 @@ contains
         ! Hack
         call vboson_resum_coeffs( s, t, u, &
           wtgg_coeff, wtqg_coeff, wtgq_coeff, wtqq_coeff, &
-          h11_fac, h12qg_coeff, h12gq_coeff, h12qq_coeff, &
-          g23qg, g23gq, g23qq )
+          h11_fac, h12qg_coeff, h12gq_coeff, h12qq_coeff, h12gg_coeff, &
+          g23qg, g23gq, g23qq, g23gg )
       case (id_bbH)
         call bbH_Msquared(s, t, u, wtqq, wtqg, wtgq, wtgg)
       case (id_user)
@@ -181,10 +178,9 @@ contains
         call wae_error('dsigma_dptdy', 'Unrecognised process')
     end select
 
-   ! -----------------------------------------------------------    
-  ! h12 and h24 res calculation
-  ! res = (wtgg * lumigg + lumiqg * wtqg + lumigq * wtgq + wtqq * lumiqqbar) * jakob 
-
+    !=======================================================================================
+    ! Resummation coefficients for V boson production
+    
     select case (resum_flag)
     case (resum_none, resum_h12, resum_h24)
       wtgg = wtgg * wtgg_coeff
@@ -196,54 +192,27 @@ contains
             lumigq * wtgq + wtqq * lumiqqbar) * jakob
 
     case (resum_h11)
-      res = ( wtgg*wtgg_coeff*lumigg + wtqg*wtqg_coeff*lumiqg + &
-        wtgq*wtgq_coeff*lumigq + wtqq*wtqq_coeff*lumiqqbar )
+      res = (wtgg * wtgg_coeff * lumigg + wtqg * wtqg_coeff * lumiqg + &
+        wtgq * wtgq_coeff * lumigq + wtqq * wtqq_coeff * lumiqqbar)
 
-      res = res - h11_fac * ( wtgg*dlumigg + wtqg*dlumiqg + wtgq*dlumigq + wtqq*dlumiqqbar )
+      res = res - h11_fac * ( wtgg * dlumigg + wtqg * dlumiqg + wtgq * dlumigq + wtqq * dlumiqqbar)
 
       res = res * jakob
 
     case (resum_h23)
 
-    res = h12qg_coeff * ( wtqg*wtqg_coeff*lumiqg - h11_fac*wtqg*dlumiqg ) + &
-          h12gq_coeff * ( wtgq*wtgq_coeff*lumigq - h11_fac*wtgq*dlumigq ) + &
-          h12qq_coeff * ( wtqq*wtqq_coeff*lumiqqbar - h11_fac*wtqq*dlumiqqbar )
+    res = h12qg_coeff * (wtqg * wtqg_coeff * lumiqg - h11_fac * wtqg * dlumiqg ) + &
+          h12gq_coeff * (wtgq * wtgq_coeff * lumigq - h11_fac * wtgq * dlumigq) + &
+          h12qq_coeff * (wtqq * wtqq_coeff * lumiqqbar - h11_fac * wtqq * dlumiqqbar) + &
+          h12gg_coeff * (wtgg * wtgg_coeff * lumigg - h11_fac * wtgg * dlumigg)
 
-    res = res + g23qg*(wtqg*lumiqg) + g23gq*(wtgq*lumigq) + g23qq*(wtqq*lumiqqbar)
+    res = res + g23qg * (wtqg * lumiqg) + g23gq * (wtgq * lumigq) + g23qq * (wtqq * lumiqqbar) + g23gg * (wtgg * lumigg)
 
     res = res * jakob
 
 
-
     end select
 
-! -----------------------------------------------------------   
-  ! h11 res calculation
-    ! res = wtgg_coeff * lumigg + lumiqg * wtqg_coeff + lumigq * wtgq_coeff +&
-    !        & wtqq_coeff * lumiqqbar
-    ! res = res-wtgg * dlumigg - dlumiqg * wtqg - dlumigq * wtgq - wtqq * dlumiqqbar
-    ! res = res * jakob
-
-  ! Code to test the individual channels
-    !  res = wtqq_coeff * lumiqqbar * jakob
-    !  res = wtqg_coeff * lumiqg * jakob
-!     res = wtgq_coeff * lumigq * jakob
-
-  ! Code to test the luminosity of the individual channels
-    ! res = - wtqq * dlumiqqbar * jakob
-    ! res = - dlumiqg * wtqg * jakob
-    ! res = - dlumigq * wtgq * jakob
-   
-    
-! -----------------------------------------------------------    
-  ! h23 res calculation
-    ! res = wtgg_coeff * lumigg + lumiqg * wtqg_coeff + lumigq * wtgq_coeff +&
-    !       & wtqq_coeff * lumiqqbar
-    ! res = res-wtgg * dlumigg - dlumiqg * wtqg - dlumigq * wtgq - wtqq * dlumiqqbar
-    ! res = -(two * cf + ca) * res
-    ! res = res - twopi_beta0 * (two * cf + ca) * (wtgg * lumigg + lumiqg * wtqg + lumigq * wtgq +&
-    !       & wtqq * lumiqqbar)
-    ! res = res * jakob
 
   end function dsigma_dptdy
 

@@ -46,8 +46,8 @@ contains
 !=======================================================================================
 !Calculate the expansion of the resummation h11, h12, h23, h24
  subroutine vboson_resum_coeffs( s, t, u, wtgg_coeff, wtqg_coeff, wtgq_coeff, wtqq_coeff, &
-      h11_fac, h12qg_coeff, h12gq_coeff, h12qq_coeff, &
-      g23qg, g23gq, g23qq )
+      h11_fac, h12qg_coeff, h12gq_coeff, h12qq_coeff, h12gg_coeff, &
+      g23qg, g23gq, g23qq, g23gg )
     use common_vars
 
     implicit none
@@ -55,39 +55,42 @@ contains
     real(dp), intent(in)  :: s, t, u
     real(dp), intent(out) :: wtgg_coeff, wtqg_coeff, wtgq_coeff, wtqq_coeff
     real(dp), intent(out) :: h11_fac
-    real(dp), intent(out) :: h12qg_coeff, h12gq_coeff, h12qq_coeff
-    real(dp), intent(out) :: g23qg, g23gq, g23qq
+    real(dp), intent(out) :: h12qg_coeff, h12gq_coeff, h12qq_coeff, h12gg_coeff
+    real(dp), intent(out) :: g23qg, g23gq, g23qq, g23gg
 
     real(dp) :: a(3), b(3), d(3), E(3)
-    real(dp) :: Cleg(3), Bleg(3)
-    real(dp) :: Bq, Bg, Q2, aobs
+    real(dp) :: Bq, Bg, Q2
     real(dp) :: Cqg(3), Cgq(3), Cqq(3)
-    real(dp), parameter :: catalan = 0.91596559_dp
+    real(dp) :: Bqg(3), Bgq(3), Bqq(3)
+    real(dp), parameter :: catalan = 0.9159655941772_dp
     real(dp), parameter :: cTT = -(four * catalan + pi * log(two))/ pi
 
-    Q2 = M**2
+    Q2 = M ** 2
 
     E(1) = sqrt(s/Q2)
     E(2) = sqrt(s/Q2)
     E(3) = sqrt((u + t)**2/(s*Q2))
 
     Bq = -three/four
-    Bg = -(11.0_dp*ca - four*tr*nf)/(12.0_dp*ca)
-    ! Catalan = 0.915966_dp
+    Bg = -(11.0_dp * ca - four * tr * nf)/(12.0_dp * ca)
 
     select case (obs_flag)
 
     case (obs_onejet)
       a(:) = one
       b(:) = one
-      d(1) = sqrt(Q2*s/t**2)
-      d(2) = sqrt(Q2*s/u**2)
-      d(3) = sqrt(Q2*s*(t+u)**2/(four*(u*t)**2))
+      d(1) = sqrt(Q2 * s/t**2)
+      d(2) = sqrt(Q2 * s/u**2)
+      d(3) = sqrt(Q2 * s * (t + u)**2/(four * (u * t)**2))
+
+      h11_fac = one
 
     case (obs_Tminor)
       a(:) = one
       b(:) = zero
       d(:) = sqrt(Q2*s/(u*t))
+
+      h11_fac = two
 
     case (obs_Tthrust)
       a(:) = one
@@ -98,31 +101,33 @@ contains
       d(2) = exp(cTT) * sqrt(Q2 * s / (u * t))
       d(3) = (sqrt(Q2) * s * E(3))/(4 * t * u)
 
+      h11_fac = two
 
     case default
       call wae_error('vboson_resum_coeffs', 'Unknown observable flag')
 
     end select
 
-    aobs = a(1)
-
-    ! Hadronic collisions
-    h11_fac = one/(aobs + b(1)) + one/(aobs + b(2))
-
     Cqg = (/ cf, ca, cf /)
     Cgq = (/ ca, cf, cf /)
     Cqq = (/ cf, cf, ca /)
 
-    h12qg_coeff = -(two/aobs) * sum( Cqg/(aobs + b) )
-    h12gq_coeff = -(two/aobs) * sum( Cgq/(aobs + b) )
-    h12qq_coeff = -(two/aobs) * sum( Cqq/(aobs + b) )
+    Bqg = (/ Bq, Bg, Bq /)
+    Bgq = (/ Bg, Bq, Bq /)
+    Bqq = (/ Bq, Bq, Bg /)
 
-    g23qg = -twopi_beta0 * (4.0_dp/(3.0_dp*aobs*aobs)) * &
-            sum( Cqg * (two*aobs + b)/(aobs + b)**2 )
-    g23gq = -twopi_beta0 * (4.0_dp/(3.0_dp*aobs*aobs)) * &
-            sum( Cgq * (two*aobs + b)/(aobs + b)**2 )
-    g23qq = -twopi_beta0 * (4.0_dp/(3.0_dp*aobs*aobs)) * &
-            sum( Cqq * (two*aobs + b)/(aobs + b)**2 )
+    h12qg_coeff = -two * sum( Cqg/(a + b) )
+    h12gq_coeff = -two * sum( Cgq/(a + b) )
+    h12qq_coeff = -two * sum( Cqq/(a + b) )
+    h12gg_coeff = zero
+
+    g23qg = -twopi_beta0 * (four/three) * &
+            sum( Cqg * (two * a + b)/(a + b)**2 )
+    g23gq = -twopi_beta0 * (four/three) * &
+            sum( Cgq * (two * a + b)/(a + b)**2 )
+    g23qq = -twopi_beta0 * (four/three) * &
+            sum( Cqq * (two * a + b)/(a + b)**2 )
+    g23gg = zero
 
 
     wtgg_coeff = one
@@ -133,35 +138,37 @@ contains
     select case (resum_flag)
             
     case (resum_h12)
-      wtqg_coeff = -sum( (/cf, ca, cf/) * two/(a+b) )
-      wtgq_coeff = -sum( (/ca, cf, cf/) * two/(a+b) )
-      wtqq_coeff = -sum( (/cf, cf, ca/) * two/(a+b) )
-      wtgg_coeff = zero
+      wtqg_coeff = -sum( Cqg * two/(a+b) )
+      wtgq_coeff = -sum( Cgq * two/(a+b) )
+      wtqq_coeff = -sum( Cqq * two/(a+b) )
 
     case (resum_h11, resum_h23)
-     
-      ! qg channel
-      Cleg = (/ cf, ca, cf /)
-      Bleg = (/ Bq, Bg, Bq /)
-      wtqg_coeff = -sum( Cleg * (four * Bleg/(a + b) + four/(a + b) * (log(d)-b * log(E)) ) )
-      wtqg_coeff = wtqg_coeff - two*ca*log(s*u/(t*Q2)) - four*cf*log(-t/Q2)
 
-      ! gq channel
-      Cleg = (/ ca, cf, cf /)
-      Bleg = (/ Bg, Bq, Bq /)
-      wtgq_coeff = -sum( Cleg * (four * Bleg/(a + b) + four/(a + b)*(log(d)-b * log(E)) ) )
-      wtgq_coeff = wtgq_coeff - two*ca*log(t*s/(u*Q2)) - four*cf*log(-u/Q2)
+   
+      wtgg_coeff = zero
 
       ! qqbar channel
-      Cleg = (/ cf, cf, ca /)
-      Bleg = (/ Bq, Bq, Bg /)
-      wtqq_coeff = -sum( Cleg * (four*Bleg/(a+b) + four/(a+b)*(log(d)-b*log(E)) ) )
-      wtqq_coeff = wtqq_coeff - two*cf*log(t*u/(s*Q2)) - four*cf*log(s/Q2)
+      wtqq_coeff = -sum( Cqq * (four*Bqq/(a + b) + four/(a + b)*(log(d)-b*log(E)) ) )
+      wtqq_coeff = wtqq_coeff - two * ca * log(t * u/(s * Q2)) - four * cf * log(s/Q2)
+
+      
+      ! qg channel
+      wtqg_coeff = -sum( Cqg * (four * Bqg/(a + b) + four/(a + b) * (log(d)-b * log(E)) ) )
+      wtqg_coeff = wtqg_coeff - two * ca * log(s * u/(t * Q2)) - four * cf * log(-t/Q2)
+
+
+      ! ! gq channel
+      wtgq_coeff = -sum( Cgq * (four * Bgq/(a + b) + four/(a + b)*(log(d)-b * log(E)) ) )
+      wtgq_coeff = wtgq_coeff - two * ca * log(t * s/(u * Q2)) - four * cf * log(-u/Q2)   
+
+    
+      
+
 
     case (resum_h24)
-      wtqg_coeff = half * (-sum( (/cf, ca, cf/) * two/(a+b))) ** 2
-      wtgq_coeff = half * (-sum( (/ca, cf, cf/) * two/(a+b))) ** 2
-      wtqq_coeff = half * (-sum( (/cf, cf, ca/) * two/(a+b))) ** 2
+      wtqg_coeff = half * (-sum( Cqg * two/(a+b))) ** 2
+      wtgq_coeff = half * (-sum( Cgq * two/(a+b))) ** 2
+      wtqq_coeff = half * (-sum( Cqq * two/(a+b))) ** 2
 
 
     case (resum_none)
