@@ -107,7 +107,6 @@ contains
     p(1,:) = Ebeam / two * (/zero, zero, one, one/)
     p(2,:) = Ebeam / two * (/zero, zero, -one, one/)
     ! write(*,*) 'Energies', half * Ebeam, half * Ebeam, E
-  
   end subroutine gen_momenta
 
   
@@ -153,6 +152,7 @@ contains
     s =  two * dot(p(1,:), p(2,:))
     t = -two * dot(p(1,:), p(3,:))
     u = -two * dot(p(2,:), p(3,:))
+ 
 
 
 
@@ -178,6 +178,9 @@ contains
         call wae_error('dsigma_dptdy', 'Unrecognised process')
     end select
 
+      ! res = (wtgg * lumigg + lumiqg * wtqg + &
+      !       lumigq * wtgq + wtqq * lumiqqbar) * jakob
+
     !=======================================================================================
     ! Resummation coefficients for V boson production
     
@@ -189,7 +192,7 @@ contains
       wtqq = wtqq * wtqq_coeff
 
       res = (wtgg * lumigg + lumiqg * wtqg + &
-            lumigq * wtgq + wtqq * lumiqqbar) * jakob
+        lumigq * wtgq + wtqq * lumiqqbar) * jakob
 
     case (resum_h11)
       res = (wtgg * wtgg_coeff * lumigg + wtqg * wtqg_coeff * lumiqg + &
