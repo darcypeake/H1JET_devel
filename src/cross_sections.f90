@@ -167,9 +167,9 @@ contains
         call vboson_Msquared(s, t, u, wtgg, wtqg, wtgq, wtqq)
         ! Hack
         call vboson_resum_coeffs( s, t, u, &
-          wtgg_coeff, wtqg_coeff, wtgq_coeff, wtqq_coeff, &
-          h11_fac, h12qg_coeff, h12gq_coeff, h12qq_coeff, h12gg_coeff, &
-          g23qg, g23gq, g23qq, g23gg )
+          wtgg_coeff, wtqg_coeff, wtgq_coeff, wtqq_coeff)! &
+!          h11_fac, h12qg_coeff, h12gq_coeff, h12qq_coeff, h12gg_coeff, &
+!          g23qg, g23gq, g23qq, g23gg )
       case (id_bbH)
         call bbH_Msquared(s, t, u, wtqq, wtqg, wtgq, wtgg)
       case (id_user)
@@ -183,39 +183,22 @@ contains
 
     !=======================================================================================
     ! Resummation coefficients for V boson production
-    
-    select case (resum_flag)
-    case (resum_none, resum_h12, resum_h24)
-      wtgg = wtgg * wtgg_coeff
-      wtqg = wtqg * wtqg_coeff
-      wtgq = wtgq * wtgq_coeff
-      wtqq = wtqq * wtqq_coeff
+    if (resum_flag > 0) then
+       res =  wtgg * wtgg_coeff * lumigg + &
+            & wtqg * wtqg_coeff * lumiqg + &
+            & wtgq * wtgq_coeff * lumigq + &
+            & wtqq * wtqq_coeff * lumiqqbar
+    else
+       res = wtgg * lumigg + lumiqg * wtqg + lumigq * wtgq + wtqq * lumiqqbar
+    end if
 
-      res = (wtgg * lumigg + lumiqg * wtqg + &
-        lumigq * wtgq + wtqq * lumiqqbar) * jakob
 
-    case (resum_h11)
-      res = (wtgg * wtgg_coeff * lumigg + wtqg * wtqg_coeff * lumiqg + &
-        wtgq * wtgq_coeff * lumigq + wtqq * wtqq_coeff * lumiqqbar)
-
-      res = res - h11_fac * ( wtgg * dlumigg + wtqg * dlumiqg + wtgq * dlumigq + wtqq * dlumiqqbar)
-
-      res = res * jakob
-
-    case (resum_h23)
-
-    res = h12qg_coeff * (wtqg * wtqg_coeff * lumiqg - h11_fac * wtqg * dlumiqg ) + &
-          h12gq_coeff * (wtgq * wtgq_coeff * lumigq - h11_fac * wtgq * dlumigq) + &
-          h12qq_coeff * (wtqq * wtqq_coeff * lumiqqbar - h11_fac * wtqq * dlumiqqbar) + &
-          h12gg_coeff * (wtgg * wtgg_coeff * lumigg - h11_fac * wtgg * dlumigg)
-
-    res = res + g23qg * (wtqg * lumiqg) + g23gq * (wtgq * lumigq) + g23qq * (wtqq * lumiqqbar) + g23gg * (wtgg * lumigg)
+!    select case (resum_flag)
+!    case (resum_h11,resum_h23)
+!      res = res + wtgg * dlumigg + wtqg * dlumiqg + wtgq * dlumigq + wtqq * dlumiqqbar
+!    end select
 
     res = res * jakob
-
-
-    end select
-
 
   end function dsigma_dptdy
 

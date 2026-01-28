@@ -181,8 +181,16 @@ program h1jet
 
     ! Include couplings and prefactors
     dsigmadpt = dsigmadpt * ew_prefactor * alphas**(as_pow + 1)
-    ! Hack
-    dsigmadpt = dsigmadpt * alphas/twopi
+    select case (resum_flag)
+    case (resum_none)
+       ! do nothing
+    case (resum_h12, resum_h11)
+          dsigmadpt = dsigmadpt * alphas/twopi
+       case (resum_h24, resum_h23)
+          dsigmadpt = dsigmadpt * (alphas/twopi)**2
+       case default
+          call wae_error('h1jet','Unrecognised resummation coefficient')
+       end select
     if (iproc == id_bbH) then
       running_mb = RunningMass(muR, mb0, alphas, as0)
       dsigmadpt = dsigmadpt * running_mb**2
