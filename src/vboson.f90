@@ -35,8 +35,8 @@ contains
     real(dp), intent(out):: wtqq, wtqg, wtgq, wtgg
 
     wtqq = cf * ((s + t)**2 + (s + u)**2) / (u * t)
-    wtqg = tr * ((s + t)**2 + (u + t)**2) / (-s * u)
-    wtgq = tr * ((s + u)**2 + (t + u)**2) / (-s * t)
+    wtgq = tr * ((s + t)**2 + (u + t)**2) / (-s * u)
+    wtqg = tr * ((s + u)**2 + (t + u)**2) / (-s * t)
     wtgg = zero
 
   end subroutine vboson_Msquared
@@ -71,6 +71,7 @@ contains
 
     ! Initialize scale and energy variables
     Q2 = M ** 2
+   
 
     Eleg(1) = sqrt(s / Q2)
     Eleg(2) = sqrt(s / Q2)
@@ -147,18 +148,21 @@ contains
 
       ! qqbar channel
       wtqq_coeff = -sum(Cqq * (four * Bqq / (aleg + bleg)))
-!      wtqq_coeff = wtqq_coeff - sum(Cqq * four / (aleg + bleg) * (log(dleg) - bleg * log(Eleg)))
-!      wtqq_coeff = wtqq_coeff - two * ca * log(t * u / (s * Q2)) - four * cf * log(s / Q2)
+      wtqq_coeff = wtqq_coeff - sum(Cqq * four / (aleg + bleg) * (log(dleg) - bleg * log(Eleg)))
+      wtqq_coeff = wtqq_coeff - two * ca * log(t * u / (s * Q2)) - four * cf * log(s / Q2)
 
       ! qg channel
       wtqg_coeff = -sum(Cqg * (four * Bqg / (aleg + bleg)))
-!      wtqg_coeff = wtqg_coeff - sum(Cqg * four / (aleg + bleg) * (log(dleg) - bleg * log(Eleg)))
-!      wtqg_coeff = wtqg_coeff - two * ca * log(s * u / (t * Q2)) - four * cf * log(-t / Q2)
+      wtqg_coeff = wtqg_coeff - sum(Cqg * four / (aleg + bleg) * (log(dleg) - bleg * log(Eleg)))
+      wtqg_coeff = wtqg_coeff - two * ca * log(s * u / (t * Q2)) - four * cf * log(-t / Q2)
+
 
       ! gq channel
       wtgq_coeff = -sum(Cgq * (four * Bgq / (aleg + bleg)))
-!      wtgq_coeff = wtgq_coeff - sum(Cgq * four / (aleg + bleg) * (log(dleg) - bleg * log(Eleg)))
-!      wtgq_coeff = wtgq_coeff - two * ca * log(t * s / (u * Q2)) - four * cf * log(-u / Q2)
+      wtgq_coeff = wtgq_coeff - sum(Cgq * four / (aleg + bleg) * (log(dleg) - bleg * log(Eleg)))
+      wtgq_coeff = wtgq_coeff - two * ca * log(t * s / (u * Q2)) - four * cf * log(-u / Q2)
+
+
 
     case (resum_h24)
       wtqg_coeff = half * (-sum(Cqg * two / (aleg + bleg)))**2

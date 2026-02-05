@@ -107,6 +107,7 @@ contains
     p(1,:) = Ebeam / two * (/zero, zero, one, one/)
     p(2,:) = Ebeam / two * (/zero, zero, -one, one/)
     ! write(*,*) 'Energies', half * Ebeam, half * Ebeam, E
+
   end subroutine gen_momenta
 
   
@@ -151,10 +152,7 @@ contains
 
     s =  two * dot(p(1,:), p(2,:))
     t = -two * dot(p(1,:), p(3,:))
-    u = -two * dot(p(2,:), p(3,:))
- 
-
-
+    u = -two * dot(p(2,:), p(3,:))   
 
     select case(iproc)
       case (id_H)
@@ -193,10 +191,10 @@ contains
     end if
 
 
-!    select case (resum_flag)
-!    case (resum_h11,resum_h23)
-!      res = res + wtgg * dlumigg + wtqg * dlumiqg + wtgq * dlumigq + wtqq * dlumiqqbar
-!    end select
+    select case (resum_flag)
+    case (resum_h11,resum_h23)
+      res = res - ( wtgg * dlumigg + wtqg * dlumiqg + wtgq * dlumigq + wtqq * dlumiqqbar)
+    end select
 
     res = res * jakob
 
