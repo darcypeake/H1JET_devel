@@ -101,7 +101,7 @@ contains
       bleg(3) = one
       dleg(1) = exp(cTT) * sqrt(Q2 * s / (u * t))
       dleg(2) = exp(cTT) * sqrt(Q2 * s / (u * t))
-      dleg(3) = (sqrt(Q2) * s * Eleg(3)) / (4 * t * u)
+      dleg(3) = sqrt(Q2 * (u + t)**2/(s * four)) * s/(four * u * t)
       h11_fac = two
 
     case default
@@ -113,6 +113,7 @@ contains
     Cqg = (/ cf, ca, cf /)
     Cgq = (/ ca, cf, cf /)
     Cqq = (/ cf, cf, ca /)
+
 
     Bqg = (/ Bq, Bg, Bq /)
     Bgq = (/ Bg, Bq, Bq /)
@@ -156,12 +157,10 @@ contains
       wtqg_coeff = wtqg_coeff - sum(Cqg * four / (aleg + bleg) * (log(dleg) - bleg * log(Eleg)))
       wtqg_coeff = wtqg_coeff - two * ca * log(s * u / (t * Q2)) - four * cf * log(-t / Q2)
 
-
       ! gq channel
       wtgq_coeff = -sum(Cgq * (four * Bgq / (aleg + bleg)))
       wtgq_coeff = wtgq_coeff - sum(Cgq * four / (aleg + bleg) * (log(dleg) - bleg * log(Eleg)))
       wtgq_coeff = wtgq_coeff - two * ca * log(t * s / (u * Q2)) - four * cf * log(-u / Q2)
-
 
 
     case (resum_h24)
@@ -169,6 +168,7 @@ contains
       wtgq_coeff = half * (-sum(Cgq * two / (aleg + bleg)))**2
       wtqq_coeff = half * (-sum(Cqq * two / (aleg + bleg)))**2
       wtgg_coeff = zero
+
 
     case (resum_none)
       ! No modification to coefficients
