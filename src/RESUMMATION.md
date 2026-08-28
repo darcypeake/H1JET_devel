@@ -1,6 +1,8 @@
 # Resummation additions
 This is H1jet with the ARES resummation coefficients added.
+
 `--obs` sets the observable: `onejet` (default), `Tminor`, `Tthrust`.
+
 `--resum` sets which coefficient is computed: `none` (default, resummation
 off), then `h12`, `h11`, `h10`, `h24`, `h23`.
 
