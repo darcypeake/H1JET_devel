@@ -42,6 +42,12 @@ program h1jet
   real(dp) :: accuracy
   ! tau = M^2 / s 
   type(gdval) :: tau
+  
+  ! dFwa - hack
+  real(dp), allocatable :: dFwa_grid(:)
+
+
+
 
   ! Print help message or version number if invoked 
   if (log_val_opt('-h') .or. log_val_opt('--help')) then
@@ -76,10 +82,20 @@ program h1jet
   call init_pdfs_from_LHAPDF(pdf_name, pdf_mem)
   allocate(lumi_gg(0:grid%ny), lumi_qg(0:grid%ny), lumi_gq(0:grid%ny),&
        & lumi_qqbar(0:grid%ny))
+ 
+  allocate(dlumi_gg(2,0:grid%ny), dlumi_qg(2,0:grid%ny), dlumi_gq(2,0:grid%ny),&
+       & dlumi_qqbar(2,0:grid%ny))
 
-  ! Hack - define the dlumi's       
-       allocate(dlumi_gg(0:grid%ny), dlumi_qg(0:grid%ny), dlumi_gq(0:grid%ny),&
-       & dlumi_qqbar(0:grid%ny))
+  ! Hack
+  allocate(zlumi_gg(0:grid%ny), zlumi_qg(0:grid%ny), zlumi_gq(0:grid%ny),&
+       & zlumi_qqbar(0:grid%ny))
+
+  ! Hack 
+  allocate(DFrec_lumi_gg(0:grid%ny), DFrec_lumi_qg(0:grid%ny), DFrec_lumi_gq(0:grid%ny),&
+       & DFrec_lumi_qqbar(0:grid%ny))
+
+  
+  
 
   ! If proc == user then check if it is set up 
   if (iproc == id_user) then 
@@ -101,6 +117,11 @@ program h1jet
 
   ! Calculate born-level cross-section 
   call luminosities(muF, collider, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
+  ! Hack - need to initialise before cross_section is called
+  call luminosities_expanded(muF, collider, dlumi_gg, dlumi_qg, dlumi_gq, dlumi_qqbar)
+  call lumi_Z_coeffs(muF, collider, zlumi_gg, zlumi_qg, zlumi_gq, zlumi_qqbar)
+  call lumi_DFrec_coeffs(muF, collider, DFrec_lumi_gg, DFrec_lumi_qg, DFrec_lumi_gq, DFrec_lumi_qqbar)
+
   sigma0 = cross_section(lumi_gg, lumi_qg, lumi_gq, lumi_qqbar, tau)
   if (iproc /= id_user) then 
     sigma0 = sigma0 * alphas**as_pow
@@ -130,6 +151,9 @@ program h1jet
   ! Allocate histogram and cross-section related arrays 
   allocate(binmin(nbins), binmed(nbins), binmax(nbins))
   allocate(dsigma_dpt(nbins), sigma(nbins))
+
+  ! dFwa - hack
+  allocate(dFwa_grid(0:grid%ny))
  
   ! Output settings used 
   call print_settings(idev) 
@@ -165,10 +189,12 @@ program h1jet
 
     muF = muF * xmuf
     muR = muR * xmur
-    
+
     call luminosities(muF, collider, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
-    ! Hack
     call luminosities_expanded(muF, collider, dlumi_gg, dlumi_qg, dlumi_gq, dlumi_qqbar)
+    ! Hack
+    call lumi_Z_coeffs(muF, collider, zlumi_gg, zlumi_qg, zlumi_gq, zlumi_qqbar)
+    call lumi_DFrec_coeffs(muF, collider, DFrec_lumi_gg, DFrec_lumi_qg, DFrec_lumi_gq, DFrec_lumi_qqbar)
 
     ! Update running alpha_s 
     alphas = RunningCoupling(muR)
@@ -184,7 +210,7 @@ program h1jet
     select case (resum_flag)
     case (resum_none)
        ! do nothing
-    case (resum_h12, resum_h11)
+    case (resum_h12, resum_h11, resum_h10)
           dsigmadpt = dsigmadpt * alphas/twopi
        case (resum_h24, resum_h23)
           dsigmadpt = dsigmadpt * (alphas/twopi)**2

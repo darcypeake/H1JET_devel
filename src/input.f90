@@ -133,6 +133,8 @@ contains
       resum_flag = resum_h24
     case ('h23')
       resum_flag = resum_h23
+    case ('h10')
+      resum_flag = resum_h10
     case default
       call wae_error('input_handler', 'Unrecognised --resum option (use none/h12/h11/h24)')
     end select

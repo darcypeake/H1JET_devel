@@ -16,6 +16,8 @@ module pdfs_tools
   type(dglap_holder), save, public :: dglap_h ! Splitting function holder
   type(pdf_table) :: PDFs ! Parton densities
   type(grid_def), public :: grid
+  type(split_mat), save, public :: ISR_matrix !Hack
+  type(split_mat), save, public :: DFrec_matrix !Hack
 
   private 
 
@@ -24,6 +26,8 @@ module pdfs_tools
   public :: get_pdfs, lumi_at_x, lumi_all_x
 
   public :: luminosities, luminosities_expanded
+  public :: lumi_Z_coeffs !Hack 
+  public :: lumi_DFrec_coeffs !Hack 
 
 contains
 
@@ -241,9 +245,9 @@ contains
   end function unpolarized_dummy_pdf
 
 !=======================================================================================
-! Returns NLO luminosities for Higgs production (or call user defined function) 
+! Hack for pdf conv splitting functions
 ! Evaluated at shat/s
-! Expanded version - hack 
+! Used for h11, h23, h10
 
   subroutine luminosities_expanded(muF, collider, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
     use ew_parameters, only : gv2_ga2
@@ -255,7 +259,7 @@ contains
     character(len=*), intent(in) :: collider
     !integer, intent(in) :: iproc
 
-    real(dp), intent(out) :: lumi_gg(0:grid%ny), lumi_qg(0:grid%ny), lumi_gq(0:grid%ny), lumi_qqbar(0:grid%ny)
+    real(dp), intent(out) :: lumi_gg(2,0:grid%ny), lumi_qg(2, 0:grid%ny), lumi_gq(2, 0:grid%ny), lumi_qqbar(2, 0:grid%ny)
 
     real(dp) :: pdf1(0:grid%ny,-6:7), pdf2(0:grid%ny,-6:7)
     integer  :: i
@@ -268,63 +272,72 @@ contains
 
     call get_pdfs(muF, collider, pdf1, pdf2)
 
-    !Hack
-    P_x_pdf1 = dglap_h%P_LO * pdf1
-    P_x_pdf2 = dglap_h%P_LO * pdf2
+    P_x_pdf1 = dglap_h%P_LO .conv. pdf1
+    P_x_pdf2 = dglap_h%P_LO .conv. pdf2
 
     select case(iproc)
       case(id_H)
-        lumi_gg = PartonLuminosity(grid, P_x_pdf1(:,iflv_g), pdf2(:,iflv_g)) + &
-                & PartonLuminosity(grid, pdf1(:,iflv_g), P_x_pdf2(:,iflv_g))
-        lumi_gq = PartonLuminosity(grid, P_x_pdf1(:,iflv_g), &
-              & sum(pdf2(:,-6:-1), dim = 2) + sum(pdf2(:, 1:6 ), dim = 2) ) + &
-              & PartonLuminosity(grid, pdf1(:,iflv_g), &
+        lumi_gg(1,:) = PartonLuminosity(grid, P_x_pdf1(:,iflv_g), pdf2(:,iflv_g)) 
+        lumi_gg(2,:) = PartonLuminosity(grid, pdf1(:,iflv_g), P_x_pdf2(:,iflv_g))
+        lumi_gq(1,:) = PartonLuminosity(grid, P_x_pdf1(:,iflv_g), &
+              & sum(pdf2(:,-6:-1), dim = 2) + sum(pdf2(:, 1:6 ), dim = 2) )
+        lumi_gq(2,:) = PartonLuminosity(grid, pdf1(:,iflv_g), &
               & sum(P_x_pdf2(:,-6:-1), dim = 2) + sum(P_x_pdf2(:, 1:6 ), dim = 2) )
-        lumi_qg = PartonLuminosity(grid, &
-              & sum(P_x_pdf1(:,-6:-1),dim = 2) + sum(P_x_pdf1(:, 1:6 ), dim = 2),pdf2(:,iflv_g)) + &
-              & PartonLuminosity(grid, &
+        lumi_qg(1,:) = PartonLuminosity(grid, &
+              & sum(P_x_pdf1(:,-6:-1),dim = 2) + sum(P_x_pdf1(:, 1:6 ), dim = 2),pdf2(:,iflv_g)) 
+        lumi_qg(2,:) = PartonLuminosity(grid, &
               & sum(pdf1(:,-6:-1),dim = 2) + sum(pdf1(:, 1:6 ), dim = 2),P_x_pdf2(:,iflv_g))
-        lumi_qqbar = 0
+        lumi_qqbar(1,:) = 0 
+        lumi_qqbar(2,:) = 0
         do i = -6, 6
           if (i == 0) cycle
-          lumi_qqbar = lumi_qqbar + PartonLuminosity(grid, P_x_pdf1(:,i), pdf2(: ,-i)) + &
-               &  PartonLuminosity(grid, pdf1(:,i), P_x_pdf2(: ,-i))
+          lumi_qqbar(1,:) = lumi_qqbar(1,:) + PartonLuminosity(grid, P_x_pdf1(:,i), pdf2(: ,-i)) 
+          lumi_qqbar(2,:) = lumi_qqbar(2,:) + PartonLuminosity(grid, pdf1(:,i), P_x_pdf2(: ,-i))
         end do
       case(id_Z)
-        lumi_qqbar = 0
+        lumi_qqbar(1,:) = 0
+        lumi_qqbar(2,:) = 0
         do i = 1, 6
-         lumi_qqbar = lumi_qqbar + gv2_ga2(i) * (PartonLuminosity(grid, P_x_pdf1(:, i), pdf2(:,-i)) + &
-                 & PartonLuminosity(grid, pdf1(:, i), P_x_pdf2(:,-i)))
-          lumi_qqbar = lumi_qqbar + gv2_ga2(i) * (PartonLuminosity(grid, P_x_pdf1(:,-i), pdf2(:, i)) + &
-                 & PartonLuminosity(grid, pdf1(:,-i),P_x_pdf2(:, i)))
+          lumi_qqbar(1,:) = lumi_qqbar(1,:) + gv2_ga2(i) * PartonLuminosity(grid, P_x_pdf1(:, i), pdf2(:,-i))
+          lumi_qqbar(2, :) = lumi_qqbar(2,:) + gv2_ga2(i) * PartonLuminosity(grid, pdf1(:, i), P_x_pdf2(:,-i))
+          lumi_qqbar(1,:) = lumi_qqbar(1,:) + gv2_ga2(i) * PartonLuminosity(grid, P_x_pdf1(:,-i), pdf2(:, i))
+          lumi_qqbar(2,:) = lumi_qqbar(2,:) + gv2_ga2(i) * PartonLuminosity(grid, pdf1(:,-i), P_x_pdf2(:, i))
         end do
-        lumi_gq = 0; lumi_qg = 0;
+        lumi_gq(1,:) = 0
+        lumi_gq(2,:) = 0
+        lumi_qg(1,:) = 0
+        lumi_qg(2,:) = 0
         do i = 1, 6
-         lumi_gq = lumi_gq + gv2_ga2(i) * (PartonLuminosity(grid, P_x_pdf1(:,iflv_g), &
-               & pdf2(:,-i)+pdf2(:,i)) + PartonLuminosity(grid, &
+          lumi_gq(1,:) = lumi_gq(1,:) + gv2_ga2(i) * (PartonLuminosity(grid, P_x_pdf1(:,iflv_g), &
+               & pdf2(:,-i)+pdf2(:,i)))
+          lumi_gq(2,:) = lumi_gq(2,:) + gv2_ga2(i) * (PartonLuminosity(grid, &
                & pdf1(:,iflv_g), P_x_pdf2(:,-i) + P_x_pdf2(:,i)))
-         lumi_qg = lumi_qg + gv2_ga2(i) * (PartonLuminosity(grid, &
-               & P_x_pdf1(:,-i) + P_x_pdf1(:, i), pdf2(:,iflv_g)) + &
-               & PartonLuminosity(grid, &
-               & pdf1(:,-i) + pdf1(:, i),P_x_pdf2(:,iflv_g)))
+          lumi_qg(1,:) = lumi_qg(1,:) + gv2_ga2(i) * (PartonLuminosity(grid, &
+               & P_x_pdf1(:,-i) + P_x_pdf1(:, i), pdf2(:,iflv_g)))
+          lumi_qg(2,:) = lumi_qg(2,:) + gv2_ga2(i) * (PartonLuminosity(grid, &
+               & pdf1(:,-i) + pdf1(:, i), P_x_pdf2(:,iflv_g)))
         end do
-        lumi_gg = 0
+        lumi_gg(1,:) = 0
+        lumi_gg(2,:) = 0
       case(id_bbH)
-        lumi_qqbar = PartonLuminosity(grid, P_x_pdf1(:,5), pdf2(:,-5)) + &
-              & PartonLuminosity(grid, P_x_pdf1(:,-5), pdf2(:,5)) + &
-              & PartonLuminosity(grid, pdf1(:,5), P_x_pdf2(:,-5)) + &
-              & PartonLuminosity(grid, pdf1(:,-5),P_x_pdf2(:,5))
-        lumi_gq = PartonLuminosity(grid, P_x_pdf1(:,iflv_g), &
-              & pdf2(:,-5) + pdf2(:,5)) +  PartonLuminosity(grid, &
+        lumi_qqbar(1,:) = PartonLuminosity(grid, P_x_pdf1(:,5), pdf2(:,-5)) + &
+              & PartonLuminosity(grid, P_x_pdf1(:,-5), pdf2(:,5))
+        lumi_qqbar(2,:) = PartonLuminosity(grid, pdf1(:,5), P_x_pdf2(:,-5)) + &
+              & PartonLuminosity(grid, pdf1(:,-5), P_x_pdf2(:,5))
+        lumi_gq(1,:) = PartonLuminosity(grid, P_x_pdf1(:,iflv_g), &
+              & pdf2(:,-5) + pdf2(:,5)) 
+        lumi_gq(2,:) = PartonLuminosity(grid, &
               & pdf1(:,iflv_g), P_x_pdf2(:,-5) +P_x_pdf2(:,5))
-        lumi_qg = PartonLuminosity(grid, &
-              & P_x_pdf1(:,-5) + P_x_pdf1(:, 5), pdf2(:,iflv_g)) + &
-              & PartonLuminosity(grid, pdf1(:,-5) + pdf1(:, 5), &
+        lumi_qg(1,:) = PartonLuminosity(grid, &
+              & P_x_pdf1(:,-5) + P_x_pdf1(:, 5), pdf2(:,iflv_g)) 
+        lumi_qg(2,:) = PartonLuminosity(grid, pdf1(:,-5) + pdf1(:, 5), &
               & P_x_pdf2(:,iflv_g))
-        lumi_gg = 0
+        lumi_gg(1,:) = 0
+        lumi_gg(2,:) = 0
       case (id_user)
         ! Call user interface 
-        call user_luminosities(grid, pdf1, pdf2, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
+        ! call user_luminosities(grid, pdf1, pdf2, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
+        call wae_error('Process not implemented')
     end select
 
   end subroutine luminosities_expanded
@@ -391,8 +404,149 @@ contains
 
   end subroutine luminosities
 
-!=======================================================================================
+! =======================================================================================
+! Hack: for ISR terms
+
+  subroutine lumi_Z_coeffs(muF,collider, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
+    use ew_parameters, only : gv2_ga2
+    use common_vars
+    use user_interface, only : user_luminosities
+    use initial_state_rad
+    
+    implicit none
+
+    real(dp), intent(in)  :: muF
+    character(len=*), intent(in) :: collider
+    real(dp), intent(out) :: lumi_gg(0:grid%ny), lumi_qg(0:grid%ny), &
+                           lumi_gq(0:grid%ny), lumi_qqbar(0:grid%ny)
+
+    real(dp) :: pdf1(0:grid%ny,-6:7), pdf2(0:grid%ny,-6:7)
+    real(dp) :: Z_x_pdf1(0:grid%ny,-6:7), Z_x_pdf2(0:grid%ny,-6:7)
+    type(split_mat) :: ISR_matrix, ISR
+    integer :: i
+  
+    call get_pdfs(muF, collider, pdf1, pdf2)
+    call InitISRMatrix(grid, ISR_matrix)
+  
+    Z_x_pdf1 = ISR_matrix .conv. pdf1
+    Z_x_pdf2 = ISR_matrix .conv. pdf2 
+
+
+
+    select case(iproc)
+      case(id_H)
+        lumi_gg = PartonLuminosity(grid, Z_x_pdf1(:,iflv_g), pdf2(:,iflv_g)) + &
+          & PartonLuminosity(grid, pdf1(:,iflv_g), Z_x_pdf2(:,iflv_g))
+        lumi_gq = PartonLuminosity(grid, Z_x_pdf1(:,iflv_g), &
+          & sum(pdf2(:,-6:-1), dim = 2) + sum(pdf2(:, 1:6 ), dim = 2) ) + &
+          & PartonLuminosity(grid, pdf1(:,iflv_g), &
+          & sum(Z_x_pdf2(:,-6:-1), dim = 2) + sum(Z_x_pdf2(:, 1:6 ), dim = 2) )
+        lumi_qg = PartonLuminosity(grid, &
+          & sum(Z_x_pdf1(:,-6:-1),dim = 2) + sum(Z_x_pdf1(:, 1:6 ), dim = 2),pdf2(:,iflv_g)) + &
+          & PartonLuminosity(grid, &
+          & sum(pdf1(:,-6:-1),dim = 2) + sum(pdf1(:, 1:6 ), dim = 2),Z_x_pdf2(:,iflv_g))
+        lumi_qqbar = 0
+        do i = -6, 6
+          if (i == 0) cycle
+          lumi_qqbar = lumi_qqbar + PartonLuminosity(grid, Z_x_pdf1(:,i), pdf2(: ,-i)) + &
+          & PartonLuminosity(grid, pdf1(:,i), Z_x_pdf2(: ,-i))
+        end do
+    
+      case(id_Z)
+        lumi_qqbar = 0
+        do i = 1, 5
+          lumi_qqbar = lumi_qqbar + gv2_ga2(i) * (PartonLuminosity(grid, Z_x_pdf1(:, i), pdf2(:,-i)) + &
+             & PartonLuminosity(grid, pdf1(:, i), Z_x_pdf2(:,-i)))
+           lumi_qqbar = lumi_qqbar + gv2_ga2(i) * (PartonLuminosity(grid, Z_x_pdf1(:,-i), pdf2(:, i)) + &
+             & PartonLuminosity(grid, pdf1(:,-i),Z_x_pdf2(:, i)))
+        end do
+      
+        lumi_gq = 0; lumi_qg = 0;
+        
+        do i = 1, 5
+          lumi_gq = lumi_gq + gv2_ga2(i) * (PartonLuminosity(grid, Z_x_pdf1(:,iflv_g), &
+            & pdf2(:,-i)+pdf2(:,i)) + PartonLuminosity(grid, &
+            & pdf1(:,iflv_g), Z_x_pdf2(:,-i) + Z_x_pdf2(:,i)))
+          lumi_qg = lumi_qg + gv2_ga2(i) * (PartonLuminosity(grid, &
+            & Z_x_pdf1(:,-i) + Z_x_pdf1(:, i), pdf2(:,iflv_g)) + &
+            & PartonLuminosity(grid, &
+            & pdf1(:,-i) + pdf1(:, i),Z_x_pdf2(:,iflv_g)))
+        end do
+          lumi_gg = 0 
+    end select
+
+  end subroutine lumi_Z_coeffs
+
+! =======================================================================================
+! Hack: for DFrec terms (thrust minor only)
+
+  subroutine lumi_DFrec_coeffs(muF,collider, lumi_gg, lumi_qg, lumi_gq, lumi_qqbar)
+    use ew_parameters, only : gv2_ga2
+    use common_vars
+    use user_interface, only : user_luminosities
+    use initial_state_rad
+    
+    implicit none
+
+    real(dp), intent(in)  :: muF
+    character(len=*), intent(in) :: collider
+    real(dp), intent(out) :: lumi_gg(0:grid%ny), lumi_qg(0:grid%ny), &
+                           lumi_gq(0:grid%ny), lumi_qqbar(0:grid%ny)
+
+    real(dp) :: pdf1(0:grid%ny,-6:7), pdf2(0:grid%ny,-6:7)
+    real(dp) :: DFrec_x_pdf1(0:grid%ny,-6:7), DFrec_x_pdf2(0:grid%ny,-6:7)
+    type(split_mat) :: DFrec_matrix, DFrec
+    integer :: i
+  
+    call get_pdfs(muF, collider, pdf1, pdf2)
+    call Init_DFrec_Matrix(grid, DFrec_matrix)
+  
+    DFrec_x_pdf1 = DFrec_matrix .conv. pdf1
+    DFrec_x_pdf2 = DFrec_matrix .conv. pdf2 
+
+
+
+    select case(iproc)
+      case(id_H)
+        lumi_gg = PartonLuminosity(grid, DFrec_x_pdf1(:,iflv_g), pdf2(:,iflv_g)) + &
+          & PartonLuminosity(grid, pdf1(:,iflv_g), DFrec_x_pdf2(:,iflv_g))
+        lumi_gq = PartonLuminosity(grid, DFrec_x_pdf1(:,iflv_g), &
+          & sum(pdf2(:,-6:-1), dim = 2) + sum(pdf2(:, 1:6 ), dim = 2) ) + &
+          & PartonLuminosity(grid, pdf1(:,iflv_g), &
+          & sum(DFrec_x_pdf2(:,-6:-1), dim = 2) + sum(DFrec_x_pdf2(:, 1:6 ), dim = 2) )
+        lumi_qg = PartonLuminosity(grid, &
+          & sum(DFrec_x_pdf1(:,-6:-1),dim = 2) + sum(DFrec_x_pdf1(:, 1:6 ), dim = 2),pdf2(:,iflv_g)) + &
+          & PartonLuminosity(grid, &
+          & sum(pdf1(:,-6:-1),dim = 2) + sum(pdf1(:, 1:6 ), dim = 2),DFrec_x_pdf2(:,iflv_g))
+        lumi_qqbar = 0
+        do i = -6, 6
+          if (i == 0) cycle
+          lumi_qqbar = lumi_qqbar + PartonLuminosity(grid, DFrec_x_pdf1(:,i), pdf2(: ,-i)) + &
+          & PartonLuminosity(grid, pdf1(:,i), DFrec_x_pdf2(: ,-i))
+        end do
+    
+      case(id_Z)
+        lumi_qqbar = 0
+        do i = 1, 5
+          lumi_qqbar = lumi_qqbar + gv2_ga2(i) * (PartonLuminosity(grid, DFrec_x_pdf1(:, i), pdf2(:,-i)) + &
+            & PartonLuminosity(grid, pdf1(:, i), DFrec_x_pdf2(:,-i)))
+          lumi_qqbar = lumi_qqbar + gv2_ga2(i) * (PartonLuminosity(grid, DFrec_x_pdf1(:,-i), pdf2(:, i)) + &
+            & PartonLuminosity(grid, pdf1(:,-i),DFrec_x_pdf2(:, i)))
+        end do
+        lumi_gq = 0; lumi_qg = 0;
+        do i = 1, 5
+          lumi_gq = lumi_gq + gv2_ga2(i) * (PartonLuminosity(grid, DFrec_x_pdf1(:,iflv_g), &
+            & pdf2(:,-i)+pdf2(:,i)) + PartonLuminosity(grid, &
+            & pdf1(:,iflv_g), DFrec_x_pdf2(:,-i) + DFrec_x_pdf2(:,i)))
+          lumi_qg = lumi_qg + gv2_ga2(i) * (PartonLuminosity(grid, &
+            & DFrec_x_pdf1(:,-i) + DFrec_x_pdf1(:, i), pdf2(:,iflv_g)) + &
+            & PartonLuminosity(grid, &
+            & pdf1(:,-i) + pdf1(:, i),DFrec_x_pdf2(:,iflv_g)))
+        end do
+          lumi_gg = 0 
+    end select
+
+  end subroutine lumi_DFrec_coeffs
 
 end module pdfs_tools
-
 

@@ -35,6 +35,7 @@ module common_vars
   integer, public, parameter :: resum_h11 = 2
   integer, public, parameter :: resum_h24 = 3
   integer, public, parameter :: resum_h23 = 4
+  integer, public, parameter :: resum_h10 = 5
   integer, public :: resum_flag
 
   ! Observable flags
